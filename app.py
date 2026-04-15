@@ -249,7 +249,13 @@ def sidebar_filters(db, calls):
         packs    = ["Tous"]   + sorted(db["Product Pack"].unique().tolist())
         segs     = ["Tous"]   + sorted(db["Acc Level 2 Segment"].unique().tolist())
         cities   = ["Toutes"] + sorted(db["Ship To - City"].dropna().unique().tolist())
-        st.markdown("**Filtres ventes**")
+
+        st.markdown("""
+        <div style="background:rgba(0,102,204,0.12);border-left:3px solid #0066cc;
+                    border-radius:0 6px 6px 0;padding:8px 10px;margin-bottom:10px">
+          <span style="font-size:11px;font-weight:700;color:#60a5fa;
+                       text-transform:uppercase;letter-spacing:.1em">📊 Filtres ventes</span>
+        </div>""", unsafe_allow_html=True)
         fy  = st.selectbox("Année",       years)
         fq  = st.selectbox("Trimestre",   quarters)
         fm  = st.selectbox("Mois",        months)
@@ -257,13 +263,25 @@ def sidebar_filters(db, calls):
         fpp = st.selectbox("Déclinaison", packs)
         fs  = st.selectbox("Segment",     segs)
         fc  = st.selectbox("Secteur",     cities)
+
+        # Badge filtres actifs
+        actifs = sum([fy!="Toutes", fq!="Tous", fm!="Tous", fp!="Tous", fpp!="Tous", fs!="Tous", fc!="Toutes"])
+        if actifs > 0:
+            st.markdown(f'<div style="background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.3);border-radius:6px;padding:6px 10px;margin:6px 0;font-size:11px;color:#fbbf24;font-weight:600">⚡ {actifs} filtre(s) actif(s)</div>', unsafe_allow_html=True)
+
         st.markdown("---")
         if len(calls):
             call_months   = ["Tous"] + sort_months(calls["Month-Year"].dropna().unique().tolist())
             call_statuses = ["Tous"] + sorted(calls["Status"].dropna().unique().tolist())
         else:
             call_months = call_statuses = ["Tous"]
-        st.markdown("**Filtres activité**")
+
+        st.markdown("""
+        <div style="background:rgba(34,197,94,0.1);border-left:3px solid #22c55e;
+                    border-radius:0 6px 6px 0;padding:8px 10px;margin-bottom:10px">
+          <span style="font-size:11px;font-weight:700;color:#4ade80;
+                       text-transform:uppercase;letter-spacing:.1em">📞 Filtres activité</span>
+        </div>""", unsafe_allow_html=True)
         fcm = st.selectbox("Mois (calls)", call_months)
         fcs = st.selectbox("Statut",       call_statuses)
         st.markdown("---")
@@ -681,25 +699,55 @@ def tab_correlation(dbf, cf):
         per = cdf[cdf["Profil"] == "Top performer"].nlargest(5, "Net Sales")
 
         if len(pot):
-            st.markdown(f'<div style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.25);border-radius:8px;padding:14px;margin-bottom:12px">', unsafe_allow_html=True)
-            st.markdown(f'<div style="font-size:12px;font-weight:700;color:{CA};margin-bottom:10px;text-transform:uppercase;letter-spacing:.06em">Fort potentiel — calls élevés, ventes faibles</div>', unsafe_allow_html=True)
-            for _, row in pot.iterrows():
-                st.markdown(f'<div style="font-size:13px;color:#e2e8f0;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.05)">{row["Client"]} — {row["Calls"]} calls · {fmtk(row["Net Sales"])}</div>', unsafe_allow_html=True)
-            st.markdown('</div>', unsafe_allow_html=True)
+            items = "".join([
+                f'<div style="font-size:12px;color:#e2e8f0;padding:5px 0;'
+                f'border-bottom:1px solid rgba(255,255,255,0.06)">'
+                f'{row["Client"]}<span style="float:right;color:#fbbf24;font-weight:600">'
+                f'{row["Calls"]} calls · {fmtk(row["Net Sales"])}</span></div>'
+                for _, row in pot.iterrows()
+            ])
+            st.markdown(
+                f'<div style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.25);'
+                f'border-radius:8px;padding:14px;margin-bottom:12px;overflow:hidden">'
+                f'<div style="font-size:11px;font-weight:700;color:{CA};margin-bottom:10px;'
+                f'text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;'
+                f'overflow:hidden;text-overflow:ellipsis">⚡ Fort potentiel</div>'
+                f'<div style="font-size:11px;color:#94a3b8;margin-bottom:8px">Calls élevés · Ventes faibles</div>'
+                f'{items}</div>',
+                unsafe_allow_html=True
+            )
 
         if len(per):
-            st.markdown(f'<div style="background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.25);border-radius:8px;padding:14px">', unsafe_allow_html=True)
-            st.markdown(f'<div style="font-size:12px;font-weight:700;color:{CG};margin-bottom:10px;text-transform:uppercase;letter-spacing:.06em">Top performers — ventes élevées, calls modérés</div>', unsafe_allow_html=True)
-            for _, row in per.iterrows():
-                st.markdown(f'<div style="font-size:13px;color:#e2e8f0;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.05)">{row["Client"]} — {fmtk(row["Net Sales"])} · {row["Calls"]} calls</div>', unsafe_allow_html=True)
-            st.markdown('</div>', unsafe_allow_html=True)
+            items = "".join([
+                f'<div style="font-size:12px;color:#e2e8f0;padding:5px 0;'
+                f'border-bottom:1px solid rgba(255,255,255,0.06)">'
+                f'{row["Client"]}<span style="float:right;color:#4ade80;font-weight:600">'
+                f'{fmtk(row["Net Sales"])} · {row["Calls"]} calls</span></div>'
+                for _, row in per.iterrows()
+            ])
+            st.markdown(
+                f'<div style="background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.25);'
+                f'border-radius:8px;padding:14px;overflow:hidden">'
+                f'<div style="font-size:11px;font-weight:700;color:{CG};margin-bottom:10px;'
+                f'text-transform:uppercase;letter-spacing:.06em;white-space:nowrap;'
+                f'overflow:hidden;text-overflow:ellipsis">🏆 Top performers</div>'
+                f'<div style="font-size:11px;color:#94a3b8;margin-bottom:8px">Ventes élevées · Calls modérés</div>'
+                f'{items}</div>',
+                unsafe_allow_html=True
+            )
 
     # G3 — Tableau corrélation
     section("Tableau de corrélation complet")
     disp = cdf.sort_values("Net Sales", ascending=False).reset_index(drop=True).copy()
+    disp_export = disp.copy()
     disp["Net Sales"] = disp["Net Sales"].apply(lambda x: f"{x/1000:.1f}K€")
     disp["ROI"]       = disp["ROI"].apply(lambda x: f"{x:.0f}€")
     disp = disp.rename(columns={"ROI": "ROI / Call"})
+
+    ce1, ce2 = st.columns([3, 1])
+    with ce2:
+        csv = disp_export.to_csv(index=False).encode("utf-8")
+        st.download_button("⬇ Exporter CSV", csv, "correlation_sfe.csv", "text/csv", use_container_width=True)
     st.dataframe(disp, use_container_width=True, hide_index=True)
 
     # G4 — Matrice ROI heatmap
