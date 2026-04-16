@@ -140,6 +140,19 @@ div[data-testid="stFileUploader"] {
 .badge-green { background: rgba(34,197,94,0.15); color: #4ade80; padding: 2px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
 .badge-amber { background: rgba(245,158,11,0.15); color: #fbbf24; padding: 2px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
 .badge-red   { background: rgba(244,63,94,0.15);  color: #fb7185; padding: 2px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+
+/* ── Masquer tous les éléments Streamlit (branding, menu, footer) ── */
+#MainMenu { visibility: hidden !important; }
+footer { visibility: hidden !important; }
+header { visibility: hidden !important; }
+[data-testid="stToolbar"] { display: none !important; }
+[data-testid="manage-app-button"] { display: none !important; }
+[data-testid="stStatusWidget"] { display: none !important; }
+[data-testid="stDecoration"] { display: none !important; }
+[class*="viewerBadge"] { display: none !important; }
+[class*="styles_viewerBadge"] { display: none !important; }
+button[kind="header"] { display: none !important; }
+.stDeployButton { display: none !important; }
 </style>
 """, unsafe_allow_html=True)
 
