@@ -188,8 +188,11 @@ def login():
             else:
                 st.error("Mot de passe incorrect.")
 
-# ── DATA ──────────────────────────────────────────────────────────────────────
-@st.cache_data
+# ── DATA STORE GLOBAL (partagé entre toutes les sessions) ────────────────────
+@st.cache_resource
+def get_store():
+    return {"db": None, "calls": None, "loaded_at": None}
+
 def load(b):
     xl    = pd.read_excel(io.BytesIO(b), sheet_name=None)
     db    = xl.get("DB",    list(xl.values())[0])
@@ -204,33 +207,46 @@ def load(b):
         calls["Year"]         = calls["Call: Created Date"].dt.year.astype("Int64")
     return db, calls
 
+def has_data():
+    s = get_store()
+    return s["db"] is not None
+
+def get_data():
+    s = get_store()
+    return s["db"], s["calls"]
+
+def save_data(db, calls):
+    from datetime import datetime
+    s = get_store()
+    s["db"]        = db
+    s["calls"]     = calls
+    s["loaded_at"] = datetime.now().strftime("%d/%m/%Y %H:%M")
+
 # ── ADMIN ─────────────────────────────────────────────────────────────────────
 def admin_panel():
+    store = get_store()
     with st.sidebar:
         st.markdown('<div style="padding:16px 0 8px"><div style="font-size:16px;font-weight:700;color:#f1f5f9">SFE Dashboard</div><div style="font-size:11px;color:#64748b">Administration</div></div>', unsafe_allow_html=True)
-        if "data" in st.session_state:
+        if has_data():
             if st.button("Voir le dashboard", use_container_width=True):
                 st.session_state.view = "dash"; st.rerun()
         if st.button("Déconnexion", use_container_width=True):
-            for k in ["role", "data", "view"]: st.session_state.pop(k, None)
+            for k in ["role", "view"]: st.session_state.pop(k, None)
             st.rerun()
     st.markdown("## Mise à jour des données")
     up = st.file_uploader("Dépose le fichier Excel Salesforce", type=["xlsx", "xls"])
     if up:
         try:
             db, calls = load(up.read())
-            st.session_state.data = (db, calls)
-            from datetime import datetime
-            st.session_state.data_loaded_at = datetime.now().strftime("%d/%m/%Y %H:%M")
-            st.success(f"Chargé — {len(db)} lignes ventes · {len(calls)} calls")
+            save_data(db, calls)
+            st.success(f"Chargé — {len(db)} lignes ventes · {len(calls)} calls · {store['loaded_at']}")
             if st.button("Accéder au dashboard →", use_container_width=True):
                 st.session_state.view = "dash"; st.rerun()
         except Exception as e:
             st.error(f"Erreur : {e}")
-    elif "data" in st.session_state:
-        db, _ = st.session_state.data
-        loaded_at = st.session_state.get("data_loaded_at", "—")
-        st.info(f"Données actuelles : {len(db)} lignes · Chargées le {loaded_at}")
+    elif has_data():
+        db, _ = get_data()
+        st.info(f"Données actuelles : {len(db)} lignes · Chargées le {store['loaded_at']}")
         if st.button("Voir le dashboard →", use_container_width=True):
             st.session_state.view = "dash"; st.rerun()
 
@@ -293,11 +309,11 @@ def sidebar_filters(db, calls):
         if st.session_state.role == "admin":
             if st.button("🔄 Mettre à jour les données", use_container_width=True):
                 st.session_state.view = "admin"; st.rerun()
-            # Date de dernière mise à jour
-            if "data_loaded_at" in st.session_state:
+            loaded_at = get_store().get("loaded_at")
+            if loaded_at:
                 st.markdown(
                     f'<div style="font-size:10px;color:#475569;margin-top:4px;text-align:center">'
-                    f'Dernière MAJ : {st.session_state.data_loaded_at}</div>',
+                    f'Dernière MAJ : {loaded_at}</div>',
                     unsafe_allow_html=True
                 )
 
@@ -798,27 +814,25 @@ def tab_correlation(dbf, cf):
 # MAIN
 # ══════════════════════════════════════════════════════════════════════════════
 def main():
-    # Étape 1 — authentification
     if "role" not in st.session_state:
         login(); return
 
     role = st.session_state.role
 
-    # Étape 2 — admin peut accéder au panneau de chargement
     if "view" not in st.session_state:
         st.session_state.view = "admin" if role == "admin" else "dash"
 
-    # Admin sans données → panneau de chargement obligatoire
-    if role == "admin" and ("data" not in st.session_state or st.session_state.view == "admin"):
+    # Admin sans données → panneau chargement obligatoire
+    if role == "admin" and (not has_data() or st.session_state.view == "admin"):
         admin_panel(); return
 
-    # User sans données → message d'attente (l'admin doit charger d'abord)
-    if "data" not in st.session_state:
+    # User sans données → message d'attente
+    if not has_data():
         with st.sidebar:
             st.markdown('<div style="padding:12px 0 6px"><div style="font-size:15px;font-weight:700;color:#f1f5f9">SFE Dashboard</div><div style="font-size:11px;color:#64748b">FA-99 · User</div></div>', unsafe_allow_html=True)
             st.markdown("---")
             if st.button("Déconnexion", use_container_width=True):
-                for k in ["role", "data", "view"]: st.session_state.pop(k, None)
+                for k in ["role", "view"]: st.session_state.pop(k, None)
                 st.rerun()
         st.markdown("""
         <div style="text-align:center;padding:4rem 0">
@@ -829,7 +843,7 @@ def main():
         return
 
     # Dashboard — accessible à tous
-    db, calls = st.session_state.data
+    db, calls = get_data()
     fy, fq, fm, fp, fpp, fs, fc, fcm, fcs = sidebar_filters(db, calls)
     dbf = filt_db(db, fy, fq, fm, fp, fpp, fs, fc)
     cf  = filt_calls(calls, fcm, fcs)
