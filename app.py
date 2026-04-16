@@ -142,17 +142,24 @@ div[data-testid="stFileUploader"] {
 .badge-red   { background: rgba(244,63,94,0.15);  color: #fb7185; padding: 2px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
 
 /* ── Masquer tous les éléments Streamlit (branding, menu, footer) ── */
-#MainMenu { visibility: hidden !important; }
-footer { visibility: hidden !important; }
-header { visibility: hidden !important; }
+#MainMenu { visibility: hidden !important; display: none !important; }
+footer { visibility: hidden !important; display: none !important; }
+header { visibility: hidden !important; display: none !important; }
 [data-testid="stToolbar"] { display: none !important; }
 [data-testid="manage-app-button"] { display: none !important; }
 [data-testid="stStatusWidget"] { display: none !important; }
 [data-testid="stDecoration"] { display: none !important; }
+[data-testid="stBottom"] { display: none !important; }
 [class*="viewerBadge"] { display: none !important; }
 [class*="styles_viewerBadge"] { display: none !important; }
+[class*="managedApp"] { display: none !important; }
 button[kind="header"] { display: none !important; }
 .stDeployButton { display: none !important; }
+.streamlit-wide { padding-bottom: 0 !important; }
+section[data-testid="stSidebar"] + div > div:last-child { display: none !important; }
+div[class*="StatusWidget"] { display: none !important; }
+div[class*="ToolbarActions"] { display: none !important; }
+div[class*="AppView-module"] footer { display: none !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -176,6 +183,33 @@ def kpi(col, label, val, sub=""):
 
 def section(title):
     st.markdown(f'<div class="sh">{title}</div>', unsafe_allow_html=True)
+
+def hide_streamlit_ui():
+    st.markdown("""
+    <script>
+    function removeStreamlitUI() {
+        const selectors = [
+            '[data-testid="manage-app-button"]',
+            '[data-testid="stToolbar"]',
+            '[data-testid="stStatusWidget"]',
+            '[data-testid="stDecoration"]',
+            '[data-testid="stBottom"]',
+            'footer',
+            '#MainMenu',
+            'header'
+        ];
+        selectors.forEach(sel => {
+            document.querySelectorAll(sel).forEach(el => {
+                el.style.display = 'none';
+                el.style.visibility = 'hidden';
+            });
+        });
+    }
+    removeStreamlitUI();
+    const obs = new MutationObserver(removeStreamlitUI);
+    obs.observe(document.body, {childList: true, subtree: true});
+    </script>
+    """, unsafe_allow_html=True)
 
 # ── AUTH ──────────────────────────────────────────────────────────────────────
 def login():
@@ -827,6 +861,7 @@ def tab_correlation(dbf, cf):
 # MAIN
 # ══════════════════════════════════════════════════════════════════════════════
 def main():
+    hide_streamlit_ui()
     if "role" not in st.session_state:
         login(); return
 
