@@ -220,6 +220,8 @@ def admin_panel():
         try:
             db, calls = load(up.read())
             st.session_state.data = (db, calls)
+            from datetime import datetime
+            st.session_state.data_loaded_at = datetime.now().strftime("%d/%m/%Y %H:%M")
             st.success(f"Chargé — {len(db)} lignes ventes · {len(calls)} calls")
             if st.button("Accéder au dashboard →", use_container_width=True):
                 st.session_state.view = "dash"; st.rerun()
@@ -227,7 +229,8 @@ def admin_panel():
             st.error(f"Erreur : {e}")
     elif "data" in st.session_state:
         db, _ = st.session_state.data
-        st.info(f"Données actuelles : {len(db)} lignes")
+        loaded_at = st.session_state.get("data_loaded_at", "—")
+        st.info(f"Données actuelles : {len(db)} lignes · Chargées le {loaded_at}")
         if st.button("Voir le dashboard →", use_container_width=True):
             st.session_state.view = "dash"; st.rerun()
 
@@ -285,9 +288,19 @@ def sidebar_filters(db, calls):
         fcm = st.selectbox("Mois (calls)", call_months)
         fcs = st.selectbox("Statut",       call_statuses)
         st.markdown("---")
+
+        # Bouton MAJ uniquement pour admin
         if st.session_state.role == "admin":
-            if st.button("Mettre à jour les données", use_container_width=True):
+            if st.button("🔄 Mettre à jour les données", use_container_width=True):
                 st.session_state.view = "admin"; st.rerun()
+            # Date de dernière mise à jour
+            if "data_loaded_at" in st.session_state:
+                st.markdown(
+                    f'<div style="font-size:10px;color:#475569;margin-top:4px;text-align:center">'
+                    f'Dernière MAJ : {st.session_state.data_loaded_at}</div>',
+                    unsafe_allow_html=True
+                )
+
         if st.button("Déconnexion", use_container_width=True):
             for k in ["role", "data", "view"]: st.session_state.pop(k, None)
             st.rerun()
@@ -785,15 +798,37 @@ def tab_correlation(dbf, cf):
 # MAIN
 # ══════════════════════════════════════════════════════════════════════════════
 def main():
+    # Étape 1 — authentification
     if "role" not in st.session_state:
         login(); return
 
-    if "view" not in st.session_state:
-        st.session_state.view = "admin" if st.session_state.role == "admin" else "dash"
+    role = st.session_state.role
 
-    if "data" not in st.session_state or st.session_state.view == "admin":
+    # Étape 2 — admin peut accéder au panneau de chargement
+    if "view" not in st.session_state:
+        st.session_state.view = "admin" if role == "admin" else "dash"
+
+    # Admin sans données → panneau de chargement obligatoire
+    if role == "admin" and ("data" not in st.session_state or st.session_state.view == "admin"):
         admin_panel(); return
 
+    # User sans données → message d'attente (l'admin doit charger d'abord)
+    if "data" not in st.session_state:
+        with st.sidebar:
+            st.markdown('<div style="padding:12px 0 6px"><div style="font-size:15px;font-weight:700;color:#f1f5f9">SFE Dashboard</div><div style="font-size:11px;color:#64748b">FA-99 · User</div></div>', unsafe_allow_html=True)
+            st.markdown("---")
+            if st.button("Déconnexion", use_container_width=True):
+                for k in ["role", "data", "view"]: st.session_state.pop(k, None)
+                st.rerun()
+        st.markdown("""
+        <div style="text-align:center;padding:4rem 0">
+          <div style="font-size:48px;margin-bottom:1rem">⏳</div>
+          <h2 style="color:#f1f5f9;font-size:1.4rem;margin-bottom:.5rem">Données non disponibles</h2>
+          <p style="color:#64748b;font-size:14px">L'administrateur n'a pas encore chargé les données.<br>Contactez votre responsable SFE.</p>
+        </div>""", unsafe_allow_html=True)
+        return
+
+    # Dashboard — accessible à tous
     db, calls = st.session_state.data
     fy, fq, fm, fp, fpp, fs, fc, fcm, fcs = sidebar_filters(db, calls)
     dbf = filt_db(db, fy, fq, fm, fp, fpp, fs, fc)
